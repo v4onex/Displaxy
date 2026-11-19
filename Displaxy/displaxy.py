@@ -99,28 +99,24 @@ def main():
 
     time.sleep(1)
 
+    print("=== 2. Discovering devices (USB & Wi-Fi/Tailscale) ===")
     raw_devices = get_raw_devices()
-    if not raw_devices:
+    devices = []
+    
+    for dev in raw_devices:
+        if ":" in dev:
+            print(f" -> [Accepted Network Device] {dev}")
+            devices.append(dev)
+        else:
+            hw_serial = run_cmd(f'"{ADB_BIN}" -s {dev} shell getprop ro.serialno')
+            if not hw_serial:
+                hw_serial = dev
+            print(f" -> [Accepted USB Device] {dev} (HW Serial: {hw_serial})")
+            devices.append(dev)
+
+    if not devices:
         print("Error: No active ADB devices found (USB or Wi-Fi)!")
         sys.exit(1)
-
-    print("=== 2. Discovering and deduplicating physical devices ===")
-    seen_serials = []
-    devices = []
-
-    for dev in raw_devices:
-        hw_serial = run_cmd(f'"{ADB_BIN}" -s {dev} shell getprop ro.serialno')
-        if not hw_serial:
-            hw_serial = dev
-
-        if hw_serial in seen_serials:
-            print(f" -> Skipping duplicate instance {dev} (HW Serial {hw_serial} already active)")
-            if ":" in dev:
-                subprocess.run(f'"{ADB_BIN}" disconnect {dev}', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        else:
-            seen_serials.append(hw_serial)
-            devices.append(dev)
-            print(f" -> [Accepted Unique Device] {dev} (HW Serial: {hw_serial})")
 
     print("=== 3. Launching scrcpy streams ===")
     port_base = 28183
